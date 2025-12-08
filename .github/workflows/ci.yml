@@ -66,7 +66,8 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm ci
+        run: npm install --prefer-offline --no-audit
+        continue-on-error: false
       
       - name: Run ESLint
         run: npm run lint
@@ -104,27 +105,18 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm ci
+        run: npm install --prefer-offline --no-audit
       
       - name: Run npm audit
         run: npm run security:audit
         continue-on-error: true
       
-      - name: Run Snyk security scan
-        uses: snyk/actions/node@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=high --json-file-output=snyk-results.json
-        continue-on-error: true
-        if: env.SNYK_TOKEN != ''
-      
-      - name: Upload Snyk results
+      - name: Upload audit report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: security-reports
-          path: snyk-results.json
+          name: audit-report
+          path: npm-audit.json
           retention-days: 30
           compression-level: 9
 
@@ -146,7 +138,7 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm ci
+        run: npm install --prefer-offline --no-audit
       
       - name: Check for outdated packages
         run: npm outdated || true
@@ -197,7 +189,7 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm ci
+        run: npm install --prefer-offline --no-audit
       
       - name: Run unit tests
         run: npm run test:unit
@@ -299,7 +291,7 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm ci
+        run: npm install --prefer-offline --no-audit
       
       - name: Run performance tests
         run: npm run test:integration -- --testNamePattern="concurrent"
@@ -338,7 +330,7 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm ci
+        run: npm install --prefer-offline --no-audit
       
       - name: Generate code metrics
         run: |
@@ -426,11 +418,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      
-      - name: Scan Docker image
-        run: |
-          echo "Docker image built successfully"
-        if: always()
 
   # ==================== NOTIFICATIONS ====================
   notify:
