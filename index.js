@@ -84,6 +84,84 @@ app.delete('/api/complaints/:id', async (req, res) => {
   }
 });
 
+// API: Get complaint details with comments
+app.get('/api/complaints/:id/details', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const connection = await pool.getConnection();
+    const [complaints] = await connection.query('SELECT * FROM complaints WHERE id = ?', [id]);
+    
+    if (complaints.length === 0) {
+      connection.release();
+      return res.status(404).json({ error: 'Complaint not found' });
+    }
+
+    const [comments] = await connection.query(
+      'SELECT * FROM comments WHERE complaint_id = ? ORDER BY created_at ASC',
+      [id]
+    );
+    connection.release();
+
+    res.json({
+      complaint: complaints[0],
+      comments: comments
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Add comment/answer to complaint
+app.post('/api/complaints/:id/comments', async (req, res) => {
+  const { id } = req.params;
+  const { comment, author, is_resolution } = req.body;
+
+  if (!comment || !author) {
+    return res.status(400).json({ error: 'Comment and author are required' });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+    await connection.query(
+      'INSERT INTO comments (complaint_id, comment, author, is_resolution, created_at) VALUES (?, ?, ?, ?, NOW())',
+      [id, comment, author, is_resolution || false]
+    );
+    connection.release();
+    res.status(201).json({ message: 'Comment added successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Get all comments for a complaint
+app.get('/api/complaints/:id/comments', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const connection = await pool.getConnection();
+    const [comments] = await connection.query(
+      'SELECT * FROM comments WHERE complaint_id = ? ORDER BY created_at ASC',
+      [id]
+    );
+    connection.release();
+    res.json(comments);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Delete comment
+app.delete('/api/comments/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const connection = await pool.getConnection();
+    await connection.query('DELETE FROM comments WHERE id = ?', [id]);
+    connection.release();
+    res.json({ message: 'Comment deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Initialize DB and start server
 async function initializeDB() {
   try {
@@ -100,6 +178,19 @@ async function initializeDB() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS comments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        complaint_id INT NOT NULL,
+        comment TEXT NOT NULL,
+        author VARCHAR(255) NOT NULL,
+        is_resolution BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (complaint_id) REFERENCES complaints(id) ON DELETE CASCADE
+      )
+    `);
+
     connection.release();
     console.log('Database initialized successfully');
   } catch (error) {

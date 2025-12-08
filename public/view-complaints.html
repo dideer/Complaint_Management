@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>View & Answer Complaints</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="navbar navbar-dark bg-dark">
+    <div class="container-fluid">
+      <span class="navbar-brand mb-0 h1">📋 Complaint Management</span>
+      <div class="nav-buttons">
+        <a href="index.html" class="btn btn-sm btn-light me-2">📝 New Complaint</a>
+        <a href="view-complaints.html" class="btn btn-sm btn-info">👁️ View & Answer</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container mt-5">
+    <div class="row">
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-header bg-primary text-white">
+            <h5>All Complaints</h5>
+          </div>
+          <div class="card-body" id="complaintListPanel" style="max-height: 600px; overflow-y: auto;">
+            <p>Loading complaints...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-8">
+        <div id="complaintDetailPanel" style="display: none;">
+          <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+              <h5 id="complaintTitle">Complaint Details</h5>
+            </div>
+            <div class="card-body">
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <p><strong>Status:</strong> <span id="complaintStatus" class="badge bg-secondary"></span></p>
+                  <p><strong>Priority:</strong> <span id="complaintPriority" class="badge bg-warning"></span></p>
+                </div>
+                <div class="col-md-6">
+                  <p><strong>Category:</strong> <span id="complaintCategory"></span></p>
+                  <p><strong>Created:</strong> <span id="complaintDate"></span></p>
+                </div>
+              </div>
+              <p><strong>Description:</strong></p>
+              <p id="complaintDescription" class="border-start ps-3 bg-light p-3"></p>
+              
+              <div class="mt-3">
+                <label><strong>Change Status:</strong></label>
+                <div class="input-group">
+                  <select class="form-control" id="statusSelect">
+                    <option>Open</option>
+                    <option>In Progress</option>
+                    <option>Resolved</option>
+                    <option>Closed</option>
+                  </select>
+                  <button class="btn btn-primary" onclick="updateComplaintStatus()">Update</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header bg-success text-white">
+              <h5>Comments & Answers</h5>
+            </div>
+            <div class="card-body">
+              <div id="commentsList" style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;">
+                <p class="text-muted">No comments yet...</p>
+              </div>
+
+              <form id="addCommentForm">
+                <div class="mb-3">
+                  <label class="form-label">Your Name</label>
+                  <input type="text" class="form-control" id="authorName" placeholder="Your name/department" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Comment/Answer</label>
+                  <textarea class="form-control" id="commentText" rows="3" placeholder="Add your comment or answer..." required></textarea>
+                </div>
+                <div class="form-check mb-3">
+                  <input class="form-check-input" type="checkbox" id="isResolution">
+                  <label class="form-check-label" for="isResolution">
+                    This is a resolution/solution
+                  </label>
+                </div>
+                <button type="submit" class="btn btn-success w-100">Add Comment</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div id="noComplaintSelected" class="card text-center p-5">
+          <h4 class="text-muted">Select a complaint to view details and add comments</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="view-complaints.js"></script>
+</body>
+</html>
