@@ -11,17 +11,25 @@
     "test:unit": "jest --testPathPattern=tests/unit --coverage",
     "test:integration": "jest --testPathPattern=tests/integration --runInBand",
     "test:all": "jest --testPathPattern=tests --runInBand --coverage",
+    "test:debug": "node --inspect-brk node_modules/.bin/jest --runInBand",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:report": "eslint . --format json --output-file eslint-report.json || true",
     "security:audit": "npm audit --audit-level=moderate",
     "security:audit:fix": "npm audit fix",
-    "security:snyk": "snyk test --severity-threshold=high || true",
+    "security:snyk": "snyk test --severity-threshold=high --json-file-output=snyk-results.json || true",
     "security:all": "npm run security:audit && npm run security:snyk",
     "code:quality": "npm run lint && npm run test:all && npm run security:all",
     "coverage:report": "jest --coverage --collectCoverageFrom='*.js' --collectCoverageFrom='!node_modules/**'",
+    "coverage:open": "open coverage/lcov-report/index.html || xdg-open coverage/lcov-report/index.html",
     "precommit": "npm run lint && npm run test:unit",
-    "prebuild": "npm run lint && npm run test:all && npm run security:audit"
+    "prebuild": "npm run lint && npm run test:all && npm run security:audit",
+    "ci:check": "npm run lint && npm run test:all",
+    "docker:build": "docker build -t complaints-app:latest .",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "setup": "npm install && npm run precommit"
   },
   "keywords": [
     "complaint",
@@ -41,5 +49,9 @@
     "nodemon": "^3.0.1",
     "snyk": "^1.1259.0",
     "supertest": "^6.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   }
 }
