@@ -16,3 +16,33 @@ body {
   border-radius: 8px;
   margin-bottom: 15px;
 }
+
+.nav-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.complaint-card {
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.complaint-card:hover {
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  transform: translateY(-2px);
+}
+
+.complaint-card.selected {
+  border-color: #007bff;
+  border-width: 3px;
+}
+
+#commentsList {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
