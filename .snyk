@@ -1,0 +1,10 @@
+version: v1.25.0
+cli:
+  tries: 2
+  enableBetaFeatures: false
+protect:
+  ignore:
+    {}
+patch:
+  {}
+failOn: all
