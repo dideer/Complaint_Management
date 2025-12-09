@@ -6,24 +6,49 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "jest --coverage",
-    "test:integration": "jest --testMatch='**/*.integration.test.js'",
-    "lint": "eslint ."
+    "test": "jest --coverage --detectOpenHandles",
+    "test:watch": "jest --watch",
+    "test:unit": "jest --testPathPattern=tests/unit --coverage",
+    "test:integration": "jest --testPathPattern=tests/integration --runInBand",
+    "test:all": "jest --testPathPattern=tests --runInBand --coverage",
+    "test:debug": "node --inspect-brk node_modules/.bin/jest --runInBand",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "lint:report": "eslint . --format json --output-file eslint-report.json || true",
+    "security:audit": "npm audit --audit-level=moderate || true",
+    "security:audit:fix": "npm audit fix",
+    "code:quality": "npm run lint && npm run test:all && npm run security:audit",
+    "coverage:report": "jest --coverage --collectCoverageFrom='*.js' --collectCoverageFrom='!node_modules/**'",
+    "coverage:open": "open coverage/lcov-report/index.html || xdg-open coverage/lcov-report/index.html",
+    "precommit": "npm run lint && npm run test:unit",
+    "prebuild": "npm run lint && npm run test:all && npm run security:audit",
+    "ci:check": "npm run lint && npm run test:all",
+    "docker:build": "docker build -t complaints-app:latest .",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "setup": "npm install && npm run precommit"
   },
-  "keywords": ["complaint", "devops"],
+  "keywords": [
+    "complaint",
+    "devops"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
-    "mysql2": "^3.6.0",
+    "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "body-parser": "^1.20.2",
-    "cors": "^2.8.5"
+    "express": "^4.18.2",
+    "mysql2": "^3.6.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1",
+    "eslint": "^8.50.0",
     "jest": "^29.7.0",
-    "supertest": "^6.3.3",
-    "eslint": "^8.50.0"
+    "nodemon": "^3.0.1",
+    "supertest": "^6.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   }
 }
