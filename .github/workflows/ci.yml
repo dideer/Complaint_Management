@@ -66,10 +66,11 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm install --prefer-offline --no-audit
+        run: npm ci
       
       - name: Run ESLint
         run: npm run lint
+        continue-on-error: false
       
       - name: Generate ESLint report
         run: npm run lint:report
@@ -103,21 +104,29 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm install --prefer-offline --no-audit
+        run: npm ci
       
       - name: Run npm audit
-        run: npm audit --json > npm-audit.json || true
+        run: npm run security:audit
         continue-on-error: true
       
-      - name: Upload audit report
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high --json-file-output=snyk-results.json
+        continue-on-error: true
+        if: env.SNYK_TOKEN != ''
+      
+      - name: Upload Snyk results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: audit-report
-          path: npm-audit.json
+          name: security-reports
+          path: snyk-results.json
           retention-days: 30
           compression-level: 9
-          if-no-files-found: ignore
 
   dependency-check:
     name: Dependency Check
@@ -137,15 +146,14 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm install --prefer-offline --no-audit
+        run: npm ci
       
       - name: Check for outdated packages
         run: npm outdated || true
-        continue-on-error: true
       
       - name: Generate SBOM
-        run: npm ls --json > sbom.json 2>&1 || echo '{"name":"complaints-app","version":"1.0.0"}' > sbom.json
-        continue-on-error: true
+        run: |
+          npm ls --json > sbom.json 2>&1 || true
       
       - name: Upload SBOM
         uses: actions/upload-artifact@v4
@@ -154,8 +162,6 @@ jobs:
           name: sbom
           path: sbom.json
           retention-days: 30
-          compression-level: 9
-          if-no-files-found: ignore
 
   # ==================== BUILD & TEST ====================
   build-test:
@@ -191,7 +197,7 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm install --prefer-offline --no-audit
+        run: npm ci
       
       - name: Run unit tests
         run: npm run test:unit
@@ -218,7 +224,6 @@ jobs:
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
         if: always()
-        continue-on-error: true
       
       - name: Archive test results
         uses: actions/upload-artifact@v4
@@ -228,7 +233,6 @@ jobs:
           path: coverage/
           retention-days: 30
           compression-level: 9
-          if-no-files-found: ignore
       
       - name: Comment PR with test results
         if: github.event_name == 'pull_request' && always()
@@ -238,28 +242,26 @@ jobs:
           script: |
             const fs = require('fs');
             try {
-              if (fs.existsSync('./coverage/coverage-summary.json')) {
-                const coverage = JSON.parse(fs.readFileSync('./coverage/coverage-summary.json', 'utf8'));
-                const total = coverage.total;
-                
-                const comment = `## 📊 Test Results
-                
-                | Metric | Coverage |
-                |--------|----------|
-                | Lines | ${total.lines.pct}% |
-                | Statements | ${total.statements.pct}% |
-                | Functions | ${total.functions.pct}% |
-                | Branches | ${total.branches.pct}% |
-                
-                ✅ All tests passed!`;
-                
-                github.rest.issues.createComment({
-                  issue_number: context.issue.number,
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  body: comment
-                });
-              }
+              const coverage = JSON.parse(fs.readFileSync('./coverage/coverage-summary.json', 'utf8'));
+              const total = coverage.total;
+              
+              const comment = `## 📊 Test Results
+              
+              | Metric | Coverage |
+              |--------|----------|
+              | Lines | ${total.lines.pct}% |
+              | Statements | ${total.statements.pct}% |
+              | Functions | ${total.functions.pct}% |
+              | Branches | ${total.branches.pct}% |
+              
+              ✅ All tests passed!`;
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
             } catch (error) {
               console.log('Could not parse coverage report:', error);
             }
@@ -297,16 +299,15 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm install --prefer-offline --no-audit
+        run: npm ci
       
       - name: Run performance tests
-        run: npm run test:integration -- --testNamePattern="concurrent" || true
+        run: npm run test:integration -- --testNamePattern="concurrent"
         env:
           DB_HOST: localhost
           DB_USER: root
           DB_PASSWORD: password
           DB_NAME: complaints_db_test
-        continue-on-error: true
       
       - name: Upload performance results
         uses: actions/upload-artifact@v4
@@ -316,7 +317,6 @@ jobs:
           path: coverage/
           retention-days: 30
           compression-level: 9
-          if-no-files-found: ignore
 
   # ==================== CODE QUALITY METRICS ====================
   quality-metrics:
@@ -338,13 +338,12 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm install --prefer-offline --no-audit
+        run: npm ci
       
       - name: Generate code metrics
         run: |
-          npm run coverage:report || true
+          npm run coverage:report
           npm run lint:report || true
-        continue-on-error: true
       
       - name: Upload metrics
         uses: actions/upload-artifact@v4
@@ -355,8 +354,6 @@ jobs:
             coverage/
             eslint-report.json
           retention-days: 30
-          compression-level: 9
-          if-no-files-found: ignore
       
       - name: Comment PR with metrics
         if: github.event_name == 'pull_request'
@@ -366,26 +363,23 @@ jobs:
           script: |
             const fs = require('fs');
             try {
-              if (fs.existsSync('./eslint-report.json')) {
-                const eslint = JSON.parse(fs.readFileSync('./eslint-report.json', 'utf8'));
-                const issues = eslint.reduce((acc, file) => acc + file.messages.length, 0);
-                
-                const comment = `## 🔍 Code Quality Metrics
-                
-                - ESLint Issues: ${issues}
-                - Quality Check: ${issues === 0 ? '✅ Passed' : '⚠️ Failed'}`;
-                
-                github.rest.issues.createComment({
-                  issue_number: context.issue.number,
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  body: comment
-                });
-              }
+              const eslint = JSON.parse(fs.readFileSync('./eslint-report.json', 'utf8'));
+              const issues = eslint.reduce((acc, file) => acc + file.messages.length, 0);
+              
+              const comment = `## 🔍 Code Quality Metrics
+              
+              - ESLint Issues: ${issues}
+              - Quality Check: ${issues === 0 ? '✅ Passed' : '⚠️ Failed'}`;
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
             } catch (error) {
               console.log('Could not parse metrics:', error);
             }
-        continue-on-error: true
 
   # ==================== DOCKER BUILD ====================
   docker-build:
@@ -395,7 +389,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    if: github.event_name == 'push'
     
     steps:
       - name: Checkout code
@@ -410,6 +404,7 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+        if: github.event_name != 'pull_request'
       
       - name: Extract metadata
         id: meta
@@ -426,7 +421,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -445,16 +440,13 @@ jobs:
       - name: Determine build status
         id: status
         run: |
-          FAILED=0
-          [ "${{ needs.codeql-analyze.result }}" = "failure" ] && FAILED=1
-          [ "${{ needs.lint-and-quality.result }}" = "failure" ] && FAILED=1
-          [ "${{ needs.security-scan.result }}" = "failure" ] && FAILED=1
-          [ "${{ needs.build-test.result }}" = "failure" ] && FAILED=1
-          [ "${{ needs.performance-tests.result }}" = "failure" ] && FAILED=1
-          [ "${{ needs.quality-metrics.result }}" = "failure" ] && FAILED=1
-          [ "${{ needs.docker-build.result }}" = "failure" ] && FAILED=1
-          
-          if [ $FAILED -eq 1 ]; then
+          if [ "${{ needs.codeql-analyze.result }}" = "failure" ] || \
+             [ "${{ needs.lint-and-quality.result }}" = "failure" ] || \
+             [ "${{ needs.security-scan.result }}" = "failure" ] || \
+             [ "${{ needs.build-test.result }}" = "failure" ] || \
+             [ "${{ needs.performance-tests.result }}" = "failure" ] || \
+             [ "${{ needs.quality-metrics.result }}" = "failure" ] || \
+             [ "${{ needs.docker-build.result }}" = "failure" ]; then
             echo "status=failure" >> $GITHUB_OUTPUT
             echo "color=danger" >> $GITHUB_OUTPUT
             echo "emoji=❌" >> $GITHUB_OUTPUT
@@ -501,12 +493,14 @@ jobs:
                 }
               ]
             }
-        if: always() && secrets.SLACK_WEBHOOK != ''
+        if: always() && env.SLACK_WEBHOOK != ''
         continue-on-error: true
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
       
       - name: Send email notification on failure
         uses: dawidd6/action-send-mail@v3
-        if: failure() && secrets.NOTIFICATION_EMAIL != ''
+        if: failure() && env.NOTIFICATION_EMAIL != ''
         with:
           server_address: ${{ secrets.EMAIL_SERVER }}
           server_port: ${{ secrets.EMAIL_PORT }}
@@ -525,60 +519,10 @@ jobs:
             
             View details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         continue-on-error: true
+        env:
+          NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
 
   # ==================== BUILD SUMMARY ====================
   build-summary:
     name: Build Summary
-    runs-on: ubuntu-latest
-    needs: [codeql-analyze, lint-and-quality, security-scan, dependency-check, build-test, performance-tests, quality-metrics, docker-build, notify]
-    if: always()
-    permissions:
-      contents: read
-      pull-requests: write
-    
-    steps:
-      - name: Generate build summary
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const jobs = {
-              'CodeQL': '${{ needs.codeql-analyze.result }}',
-              'Lint': '${{ needs.lint-and-quality.result }}',
-              'Security': '${{ needs.security-scan.result }}',
-              'Dependencies': '${{ needs.dependency-check.result }}',
-              'Tests': '${{ needs.build-test.result }}',
-              'Performance': '${{ needs.performance-tests.result }}',
-              'Metrics': '${{ needs.quality-metrics.result }}',
-              'Docker': '${{ needs.docker-build.result }}'
-            };
-            
-            let summary = '## 📋 CI/CD Pipeline Summary\n\n';
-            summary += '| Stage | Status |\n';
-            summary += '|-------|--------|\n';
-            
-            Object.entries(jobs).forEach(([name, status]) => {
-              const icon = status === 'success' ? '✅' : status === 'failure' ? '❌' : '⏭️';
-              summary += `| ${name} | ${icon} ${status} |\n`;
-            });
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: summary
-            });
-        continue-on-error: true
-      
-      - name: Print summary to console
-        run: |
-          echo "=== CI/CD Pipeline Summary ==="
-          echo "CodeQL:       ${{ needs.codeql-analyze.result }}"
-          echo "Lint:         ${{ needs.lint-and-quality.result }}"
-          echo "Security:     ${{ needs.security-scan.result }}"
-          echo "Dependencies: ${{ needs.dependency-check.result }}"
-          echo "Tests:        ${{ needs.build-test.result }}"
-          echo "Performance:  ${{ needs.performance-tests.result }}"
-          echo "Metrics:      ${{ needs.quality-metrics.result }}"
-          echo "Docker:       ${{ needs.docker-build.result }}"
+    runs-on: ubuntu-l
